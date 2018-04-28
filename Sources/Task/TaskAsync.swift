@@ -21,7 +21,7 @@ extension Task {
     ///   complete the Task.
     /// - parameter body: A failable closure creating and returning the
     ///   success value of the task.
-    public convenience init(upon queue: DispatchQueue = .any(), flags: DispatchWorkItemFlags = [], onCancel produceError: @autoclosure @escaping() -> Error, execute body: @escaping() throws -> SuccessValue) {
+    public static func async(upon queue: DispatchQueue = .any(), flags: DispatchWorkItemFlags = [], onCancel produceError: @autoclosure @escaping() -> Error, execute body: @escaping() throws -> SuccessValue) -> Task {
         let deferred = Deferred<Result>()
         let semaphore = DispatchSemaphore(value: 1)
 
@@ -32,11 +32,11 @@ extension Task {
             deferred.fill(with: Result(from: body))
         }
 
-        self.init(deferred) {
+        return Task(deferred) {
             guard case .success = semaphore.wait(timeout: .now()) else { return }
             defer { semaphore.signal() }
 
-            _ = deferred.fill(with: .failure(produceError()))
+            _ = deferred.fail(with: produceError())
         }
     }
 }

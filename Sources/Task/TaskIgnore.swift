@@ -10,7 +10,18 @@
 import Deferred
 #endif
 
-extension Task {
+extension TaskProtocol {
+    /// TODO documentation.
+    public func every<NewSuccessValue>(per eachUseTransform: @escaping(Value.Right) -> NewSuccessValue) -> Task<NewSuccessValue> {
+        let future = every { (result) -> Task<NewSuccessValue>.Result in
+            result.withValues(ifLeft: Task<NewSuccessValue>.Result.failure, ifRight: { .success(eachUseTransform($0)) })
+        }
+
+        return Task(future)
+    }
+}
+
+extension TaskProtocol {
     /// Returns a task that ignores the successful completion of this task.
     ///
     /// This is semantically identical to the following:
@@ -23,14 +34,6 @@ extension Task {
     ///
     /// - see: map(transform:)
     public func ignored() -> Task<Void> {
-        let future = every { (result) -> Task<Void>.Result in
-            result.withValues(ifLeft: Task<Void>.Result.failure, ifRight: { _ in Task<Void>.Result.success(()) })
-        }
-
-#if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-        return Task<Void>(future: future, progress: progress)
-#else
-        return Task<Void>(future: future, cancellation: cancel)
-#endif
+        return every { _ in }
     }
 }

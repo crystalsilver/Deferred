@@ -30,6 +30,11 @@ extension Either where Left == Error {
     public func extract() throws -> Right {
         return try withValues(ifLeft: { throw $0 }, ifRight: { $0 })
     }
+
+    /// TODO documentations
+    public func ignored() -> Task<Void>.Result {
+        return withValues(ifLeft: Task<Void>.Result.failure, ifRight: { _ in .success(()) })
+    }
 }
 
 extension Optional where Wrapped: Either {
@@ -38,4 +43,30 @@ extension Optional where Wrapped: Either {
     public static func ?? (lhs: Wrapped?, rhs: @autoclosure() throws -> Wrapped.Right) rethrows -> Wrapped.Right {
         fatalError("Cannot call unavailable methods")
     }
+}
+
+private enum EitherProtocolLogicError: Error {
+    case invalidInput
+}
+
+extension Either where Left == Error {
+    public init(value: Right?, error: Left?) {
+        switch (value, error) {
+        case (let value?, _):
+            // Ignore error if value is non-nil
+            self.init(success: value)
+        case (nil, let error):
+            self.init(failure: error ?? EitherProtocolLogicError.invalidInput)
+        }
+    }
+}
+
+extension Either where Right == Void {
+
+    /// Creates the success value.
+    @available(swift 4)
+    public init() {
+        self.init { () }
+    }
+
 }

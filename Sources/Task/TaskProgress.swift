@@ -206,7 +206,7 @@ extension Progress {
     /// A simple indeterminate progress with a cancellation function.
     static func wrappingCompletion<OtherFuture: FutureProtocol>(of base: OtherFuture, cancellation: (() -> Void)?) -> Progress {
         let progress = Progress(parent: nil, userInfo: nil)
-        progress.totalUnitCount = base.wait(until: .now()) != nil ? 0 : -1
+        progress.totalUnitCount = base.peek() != nil ? 0 : -1
 
         if let cancellation = cancellation {
             progress.cancellationHandler = cancellation
@@ -290,22 +290,28 @@ extension Progress {
     }
 }
 
-extension Task {
+extension TaskProtocol {
     /// Extend the progress of `self` to reflect an added operation of `cost`.
     ///
     /// Incrementing the total unit count is not atomic; we take a lock so as
     /// to not interfere with simultaneous mapping operations.
-    func extendedProgress(byUnitCount cost: Int64) -> Progress {
-        if let lock = progress.userInfo[.taskRootLock] as? NSLock {
+    func incrementedProgress() -> Progress {
+        let asTask = self as? Task<Value.Right>
+
+        if let progress = asTask?.progress, let lock = progress.userInfo[.taskRootLock] as? NSLock {
             lock.lock()
             defer { lock.unlock() }
 
-            progress.totalUnitCount += cost
+            progress.totalUnitCount += 1
+            return progress
+        } else if let progress = asTask?.progress {
+            let progress = Progress(taskRootFor: progress, orphaned: false)
+            progress.totalUnitCount += 1
             return progress
         } else {
-            let progress = Progress(taskRootFor: self.progress, orphaned: false)
-
-            progress.totalUnitCount += cost
+            let progress = Progress.wrappingCompletion(of: self, cancellation: cancel)
+            progress.totalUnitCount += 1
+            progress.setUserInfoObject(NSLock(), forKey: .taskRootLock)
             return progress
         }
     }

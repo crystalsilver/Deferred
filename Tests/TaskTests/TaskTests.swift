@@ -227,7 +227,7 @@ class TaskTests: CustomExecutorTestCase {
     }
 
     func testThatTaskCreatedUnfilledIsIndeterminate() {
-        let task = Task<Int>()
+        let task = Task<Int>.never
 
         XCTAssert(task.progress.isIndeterminate)
     }

@@ -12,7 +12,61 @@ import Deferred
 
 import Dispatch
 
-extension Task {
+extension TaskProtocol {
+    /// TODO documentation
+    public func andThen<Next: FutureProtocol>(upon queue: PreferredExecutor, start startNextTask: @escaping(Value.Right) throws -> Next) -> Task<Next.Value> {
+        return andThen(upon: queue as Executor, start: startNextTask)
+    }
+
+    /// TODO documentation
+    public func andThen<Next: FutureProtocol>(upon executor: Executor, start startNextTask: @escaping(Value.Right) throws -> Next) -> Task<Next.Value> {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+        let progress = incrementedProgress()
+        #else
+        let cancellationToken = Deferred<Void>()
+        #endif
+
+        typealias Result = Task<Next.Value>.Result
+
+        let future = andThen(upon: executor) { (result) -> Future<Result> in
+            do {
+                let value = try result.extract()
+
+                #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+                // We want to become the thread-local progress, but we don't
+                // want to consume units; we may not attach newTask.progress to
+                // the root progress until after the scope ends.
+                progress.becomeCurrent(withPendingUnitCount: 0)
+                defer { progress.resignCurrent() }
+                #endif
+
+                // Attempt to create and wrap the next task. Task's own progress
+                // wrapper logic takes over at this point.
+                let newTask = try startNextTask(value)
+                #if !os(macOS) && !os(iOS) && !os(tvOS) && !os(watchOS)
+                cancellationToken.upon(DispatchQueue.any(), execute: newTask.cancel)
+                #endif
+                return Future(success: newTask)
+            } catch {
+                #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+                // Failure case behaves just like map: just error passthrough.
+                progress.becomeCurrent(withPendingUnitCount: 1)
+                defer { progress.resignCurrent() }
+                #endif
+
+                return Future(failure: error)
+            }
+        }
+
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+        return Task(future: future, progress: progress)
+        #else
+        return Task(future: future) {
+            cancellationToken.fill(with: ())
+        }
+        #endif
+    }
+
     /// Begins another task by passing the result of the task to `startNextTask`
     /// once it completes successfully.
     ///
@@ -21,8 +75,7 @@ extension Task {
     ///
     /// Cancelling the resulting task will attempt to cancel both the receiving
     /// task and the created task.
-    public func andThen<NewTask: FutureProtocol>(upon executor: PreferredExecutor, start startNextTask: @escaping(SuccessValue) throws -> NewTask) -> Task<NewTask.Value.Right>
-        where NewTask.Value: Either, NewTask.Value.Left == Error {
+    public func andThen<Next: TaskProtocol>(upon executor: PreferredExecutor, start startNextTask: @escaping(Value.Right) throws -> Next) -> Task<Next.Value.Right> {
         return andThen(upon: executor as Executor, start: startNextTask)
     }
 
@@ -39,15 +92,16 @@ extension Task {
     /// `startNextTask` closure. `andThen` submits `startNextTask` to `executor`
     /// once the task completes successfully.
     /// - see: FutureProtocol.andThen(upon:start:)
-    public func andThen<NewTask: FutureProtocol>(upon executor: Executor, start startNextTask: @escaping(SuccessValue) throws -> NewTask) -> Task<NewTask.Value.Right>
-        where NewTask.Value: Either, NewTask.Value.Left == Error {
+    public func andThen<Next: TaskProtocol>(upon executor: Executor, start startNextTask: @escaping(Value.Right) throws -> Next) -> Task<Next.Value.Right> {
         #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-        let progress = extendedProgress(byUnitCount: 1)
+        let progress = incrementedProgress()
         #else
         let cancellationToken = Deferred<Void>()
         #endif
 
-        let future: Future<Task<NewTask.Value.Right>.Result> = andThen(upon: executor) { (result) -> Task<NewTask.Value.Right> in
+        typealias Result = Task<Next.Value.Right>.Result
+
+        let future = andThen(upon: executor) { (result) -> Future<Result> in
             do {
                 let value = try result.extract()
 
@@ -63,11 +117,9 @@ extension Task {
                 // wrapper logic takes over at this point.
                 let newTask = try startNextTask(value)
                 #if !os(macOS) && !os(iOS) && !os(tvOS) && !os(watchOS)
-                if let task = newTask as? Task<NewTask.Value.Right> {
-                    cancellationToken.upon(DispatchQueue.any(), execute: task.cancel)
-                }
+                cancellationToken.upon(DispatchQueue.any(), execute: newTask.cancel)
                 #endif
-                return Task<NewTask.Value.Right>(newTask)
+                return Future(task: newTask)
             } catch {
                 #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
                 // Failure case behaves just like map: just error passthrough.
@@ -75,14 +127,14 @@ extension Task {
                 defer { progress.resignCurrent() }
                 #endif
 
-                return Task<NewTask.Value.Right>(failure: error)
+                return Future(value: .failure(error))
             }
         }
 
         #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-        return Task<NewTask.Value.Right>(future: future, progress: progress)
+        return Task(future: future, progress: progress)
         #else
-        return Task<NewTask.Value.Right>(future: future) {
+        return Task(future: future) {
             cancellationToken.fill(with: ())
         }
         #endif

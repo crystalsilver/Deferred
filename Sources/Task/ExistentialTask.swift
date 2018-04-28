@@ -43,10 +43,14 @@ public final class Task<SuccessValue>: NSObject {
         self.progress = .taskRoot(for: progress)
     }
 
-    /// Create a task that will never complete.
-    public override init() {
-        self.future = Future()
+    private init(never: ()) {
+        self.future = .never
         self.progress = .indefinite()
+    }
+
+    /// Create a task that will never complete.
+    public static var never: Task<SuccessValue> {
+        return Task(never: ())
     }
 
     /// Creates a task given a `future` and an optional `cancellation`.
@@ -61,7 +65,7 @@ public final class Task<SuccessValue>: NSObject {
     /// Creates a task whose `upon(_:execute:)` methods use those of `base`.
     public convenience init<Task: FutureProtocol>(_ base: Task, progress: Progress)
         where Task.Value: Either, Task.Value.Left == Error, Task.Value.Right == SuccessValue {
-        self.init(future: Future(task: base), progress: progress)
+            self.init(future: Future(task: base), progress: progress)
     }
 
     /// Creates a task whose `upon(_:execute:)` methods use those of `base`.
@@ -110,7 +114,7 @@ extension Task: FutureProtocol {
     }
 }
 
-extension Task {
+extension Task: TaskProtocol {
     /// Attempt to cancel the underlying operation.
     ///
     /// An implementation should be a "best effort". There are several

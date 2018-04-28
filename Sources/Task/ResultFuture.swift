@@ -11,7 +11,7 @@ import Deferred
 #endif
 import Dispatch
 
-extension FutureProtocol where Value: Either {
+extension FutureProtocol where Value: Either, Value.Left == Error {
     /// Call some `body` closure if the future successfully resolves a value.
     ///
     /// - parameter executor: A context for handling the `body` on fill.
@@ -74,5 +74,15 @@ extension Future where Value: Either, Value.Left == Error {
         self.init(other.every {
             Value(success: $0)
         })
+    }
+
+    /// TODO documentation
+    public init(success getValue: @autoclosure() throws -> Value.Right) {
+        self.init(value: Value(from: getValue))
+    }
+
+    /// TODO documentation
+    public init(failure error: Error) {
+        self.init(value: Value(failure: error))
     }
 }

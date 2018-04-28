@@ -134,9 +134,13 @@ public struct Future<Value>: FutureProtocol {
         self.box = Always(value: value)
     }
 
-    /// Create a future that will never get fulfilled.
-    public init() {
+    private init(never: ()) {
         self.box = Never()
+    }
+
+    /// Create a future that will never get fulfilled.
+    public static var never: Future<Value> {
+        return Future(never: ())
     }
 
     /// Create a future having the same underlying future as `other`.
@@ -158,5 +162,12 @@ public struct Future<Value>: FutureProtocol {
 
     public func wait(until time: DispatchTime) -> Value? {
         return box.wait(until: time)
+    }
+}
+
+extension Future where Value == Void {
+    /// TODO documentation
+    public init() {
+        self.init(value: ())
     }
 }

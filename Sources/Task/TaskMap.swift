@@ -10,7 +10,7 @@
 import Deferred
 #endif
 
-extension Task {
+extension TaskProtocol {
     /// Returns a `Task` containing the result of mapping `transform` over the
     /// successful task's value.
     ///
@@ -18,7 +18,7 @@ extension Task {
     /// is the earliest, or parent-most, task in a tree of tasks.
     ///
     /// The resulting task is cancellable in the same way the receiving task is.
-    public func map<NewSuccessValue>(upon queue: PreferredExecutor, transform: @escaping(SuccessValue) throws -> NewSuccessValue) -> Task<NewSuccessValue> {
+    public func map<NewSuccessValue>(upon queue: PreferredExecutor, transform: @escaping(Value.Right) throws -> NewSuccessValue) -> Task<NewSuccessValue> {
         return map(upon: queue as Executor, transform: transform)
     }
 
@@ -33,9 +33,9 @@ extension Task {
     /// The resulting task is cancellable in the same way the receiving task is.
     ///
     /// - see: FutureProtocol.map(upon:transform:)
-    public func map<NewSuccessValue>(upon executor: Executor, transform: @escaping(SuccessValue) throws -> NewSuccessValue) -> Task<NewSuccessValue> {
+    public func map<NewSuccessValue>(upon executor: Executor, transform: @escaping(Value.Right) throws -> NewSuccessValue) -> Task<NewSuccessValue> {
         #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-        let progress = extendedProgress(byUnitCount: 1)
+        let progress = incrementedProgress()
         #endif
 
         let future: Future<Task<NewSuccessValue>.Result> = map(upon: executor) { (result) in

@@ -6,9 +6,8 @@
 //  Copyright © 2014-2016 Big Nerd Ranch. Licensed under MIT.
 //
 
-/// A type that can exclusively represent either some result value of a
-/// successful computation or a failure with an error.
-public protocol Either: CustomStringConvertible, CustomDebugStringConvertible {
+/// A type that represents values with two possibilities.
+public protocol Either: CustomStringConvertible {
     /// One of the two possible results.
     ///
     /// By convention, the left side is used to hold an error value.
@@ -33,17 +32,7 @@ public protocol Either: CustomStringConvertible, CustomDebugStringConvertible {
 }
 
 extension Either {
-    /// A textual representation of this instance.
     public var description: String {
         return withValues(ifLeft: { String(describing: $0) }, ifRight: { String(describing: $0) })
-    }
-
-    /// A textual representation of this instance, suitable for debugging.
-    public var debugDescription: String {
-        return withValues(ifLeft: {
-            "failure(\(String(reflecting: $0)))"
-        }, ifRight: {
-            "success(\(String(reflecting: $0)))"
-        })
     }
 }
