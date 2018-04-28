@@ -46,25 +46,6 @@ import Foundation
 public protocol Executor: class {
     /// Execute the `body` closure.
     func submit(_ body: @escaping() -> Void)
-
-    /// Execute the `workItem`.
-    func submit(_ workItem: DispatchWorkItem)
-
-    /// If the executor is a higher-level wrapper around a dispatch queue,
-    /// may be used instead of `submit(_:)` for more efficient execution.
-    var underlyingQueue: DispatchQueue? { get }
-}
-
-extension Executor {
-    /// By default, submits the closure contents of the work item.
-    public func submit(_ workItem: DispatchWorkItem) {
-        submit(workItem.perform)
-    }
-
-    /// By default, `nil`; the executor's `submit(_:)` is used unconditionally.
-    public var underlyingQueue: DispatchQueue? {
-        return nil
-    }
 }
 
 /// Dispatch queues invoke function bodies submitted to them serially in FIFO
@@ -91,14 +72,6 @@ extension DispatchQueue: Executor {
     public func submit(_ body: @escaping() -> Void) {
         async(execute: body)
     }
-
-    public func submit(_ workItem: DispatchWorkItem) {
-        async(execute: workItem)
-    }
-
-    public var underlyingQueue: DispatchQueue? {
-        return self
-    }
 }
 
 /// An operation queue manages a number of operation objects, making high
@@ -120,11 +93,13 @@ extension OperationQueue: Executor {
 /// of the run loop.
 extension CFRunLoop: Executor {
     public func submit(_ body: @escaping() -> Void) {
+        let runLoopModes: CFTypeRef
         #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            CFRunLoopPerformBlock(self, CFRunLoopMode.defaultMode.rawValue, body)
+        runLoopModes = CFRunLoopMode.defaultMode.rawValue
         #else
-            CFRunLoopPerformBlock(self, kCFRunLoopDefaultMode, body)
+        runLoopModes = kCFRunLoopDefaultMode
         #endif
+        CFRunLoopPerformBlock(self, runLoopModes, body)
         CFRunLoopWakeUp(self)
     }
 }
