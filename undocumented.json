@@ -1,0 +1,19 @@
+{
+  "warnings": [
+    {
+      "file": "/Users/travis/build/bignerdranch/Deferred/Sources/Deferred/ExistentialFuture.swift",
+      "line": 147,
+      "symbol": "Future.upon(_:execute:)",
+      "symbol_kind": "source.lang.swift.decl.function.method.instance",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/Users/travis/build/bignerdranch/Deferred/Sources/Task/ExistentialTask.swift",
+      "line": 100,
+      "symbol": "Task.upon(_:execute:)",
+      "symbol_kind": "source.lang.swift.decl.function.method.instance",
+      "warning": "undocumented"
+    }
+  ],
+  "source_directory": "/Users/travis/build/bignerdranch/Deferred"
+}
